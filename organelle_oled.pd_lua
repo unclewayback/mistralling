@@ -705,6 +705,7 @@ function oled:in_1_oled_vumeter(atoms)
     local outL = tonumber(a[4]) or 0
     local peaks = tonumber(a[5]) or 0
     self:draw_vumeter(inR, inL, outR, outL, peaks)
+    self:flip()  -- Auto-flip like line commands do
 end
 
 -- Draw VU meter matching Organelle OS C++ drawInfoBar()
