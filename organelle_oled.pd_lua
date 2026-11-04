@@ -693,10 +693,12 @@ function oled:in_1_oled_line_5(atoms)
     self:setLine(5, text)
 end
 
--- VU meter - draws audio level meters in the info bar area
+-- VU meter - draws audio level meters at the TOP of the screen
+-- Matches Organelle OS C++ drawInfoBar() implementation exactly
 function oled:in_1_oled_vumeter(atoms)
     local a = get_args(atoms)
     -- Parse all 5 parameters: inR, inL, outR, outL, peaks
+    -- Note: C++ signature is drawInfoBar(int inR, int inL, int outR, int outL, int peaks, ...)
     local inR = tonumber(a[1]) or 0
     local inL = tonumber(a[2]) or 0
     local outR = tonumber(a[3]) or 0
@@ -705,54 +707,81 @@ function oled:in_1_oled_vumeter(atoms)
     self:draw_vumeter(inR, inL, outR, outL, peaks)
 end
 
--- Draw VU meter in the info bar area
--- Matches Organelle OS C++ drawInfoBar() behavior
--- Input VU meters: x=0-30 (left channel at 0-14, right at 16-30)
--- Output VU meters: x=34-62 (left channel at 34-48, right at 50-62)
--- Each VU meter has 11 bars (0-10), each bar is 2 pixels wide with 1 pixel spacing
--- Active bars: y=50-53 (4 pixels tall)
--- Inactive bars: y=52-53 (2 pixels tall, baseline)
+-- Draw VU meter matching Organelle OS C++ drawInfoBar()
+-- Layout (from C++ code):
+--   'I' at (0,0), 'O' at (45,0)
+--   Input VU: x=7 to x=40 (11 bars, 3px wide, spaced 3px apart)
+--     - inR (right): top row at y=0-1, bars at x=7+i*3
+--     - inL (left): bottom row at y=4-5, bars at x=7+i*3
+--   Output VU: x=54 to x=87 (11 bars, 3px wide, spaced 3px apart)
+--     - outR (right): top row at y=0-1, bars at x=54+i*3
+--     - outL (left): bottom row at y=4-5, bars at x=54+i*3
+--   Background ticks at y=1 and y=5 for each bar position
+--   Peak indicators drawn at last bar position (i=10) when peak bit is set
 function oled:draw_vumeter(inR, inL, outR, outL, peaks)
-    -- Clamp all values to 0-11 range (Organelle uses 0-11 for VU meter bars)
-    -- User sends values like 0-5, so we need to scale them to 0-10 bars
+    -- Clamp all values to 0-11 range (matches C++: if (x < 0) x = 0; if (x > 11) x = 11;)
     inR = math.floor(math.max(0, math.min(11, inR)))
     inL = math.floor(math.max(0, math.min(11, inL)))
     outR = math.floor(math.max(0, math.min(11, outR)))
     outL = math.floor(math.max(0, math.min(11, outL)))
     
-    -- Input VU meters (left and right channels)
-    -- Left input: x=2 to x=32 (11 bars, each 3 pixels wide: 2px bar + 1px space)
+    -- Clear the VU meter area (top 6 rows, full width)
+    self:fill_area(0, 0, 128, 6, 0)
+    
+    -- Draw 'I' and 'O' labels (matching C++: put_char_small('I', 0, 0, 1) and put_char_small('O', 45, 0, 1))
+    self:put_char_small(string.byte('I'), 0, 0, 1)
+    self:put_char_small(string.byte('O'), 45, 0, 1)
+    
+    -- Draw input VU meter (left side) - matching C++ code
+    -- Background ticks ("little guys") at y=1 and y=5
     for i = 0, 10 do
-        -- Left input channel
-        if i < inL then
-            self:fill_area(2 + i * 3, 50, 2, 4, 1)  -- Active bar (4px tall)
-        else
-            self:fill_area(2 + i * 3, 52, 2, 2, 1)  -- Inactive bar (2px tall)
-        end
-        
-        -- Right input channel
-        if i < inR then
-            self:fill_area(16 + i * 3, 50, 2, 4, 1)  -- Active bar
-        else
-            self:fill_area(16 + i * 3, 52, 2, 2, 1)  -- Inactive bar
-        end
+        self:fill_area(7 + i * 3, 1, 1, 1, 1)  -- top tick
+        self:fill_area(7 + i * 3, 5, 1, 1, 1)  -- bottom tick
     end
     
-    -- Output VU meters (left and right channels)
-    -- Left output: x=34 to x=64
+    -- Active bars ("big guys") for input - matching C++: draw_box_filled((i * 3) + 7, 0, 3, 2)
+    -- inR: top row (y=0-1), 3px wide, 2px high
+    for i = 0, inR - 1 do
+        self:fill_area(7 + i * 3, 0, 3, 2, 1)
+    end
+    
+    -- inL: bottom row (y=4-5), 3px wide, 2px high
+    for i = 0, inL - 1 do
+        self:fill_area(7 + i * 3, 4, 3, 2, 1)
+    end
+    
+    -- Draw output VU meter (right side) - matching C++ code
+    -- Background ticks
     for i = 0, 10 do
-        -- Left output channel
-        if i < outL then
-            self:fill_area(34 + i * 3, 50, 2, 4, 1)  -- Active bar
-        else
-            self:fill_area(34 + i * 3, 52, 2, 2, 1)  -- Inactive bar
+        self:fill_area(54 + i * 3, 1, 1, 1, 1)  -- top tick
+        self:fill_area(54 + i * 3, 5, 1, 1, 1)  -- bottom tick
+    end
+    
+    -- Active bars for output - matching C++: draw_box_filled((i * 3) + 54, 0, 3, 2)
+    -- outR: top row (y=0-1)
+    for i = 0, outR - 1 do
+        self:fill_area(54 + i * 3, 0, 3, 2, 1)
+    end
+    
+    -- outL: bottom row (y=4-5)
+    for i = 0, outL - 1 do
+        self:fill_area(54 + i * 3, 4, 3, 2, 1)
+    end
+    
+    -- Draw peak indicators - matching C++ peak bitmask logic
+    -- peaks bitmask: 1=inR, 2=inL, 4=outR, 8=outL
+    if peaks and peaks > 0 then
+        if (peaks & 1) ~= 0 then
+            self:fill_area(7 + 10 * 3, 0, 3, 2, 1)  -- inR peak at last bar
         end
-        
-        -- Right output channel
-        if i < outR then
-            self:fill_area(48 + i * 3, 50, 2, 4, 1)  -- Active bar
-        else
-            self:fill_area(48 + i * 3, 52, 2, 2, 1)  -- Inactive bar
+        if (peaks & 2) ~= 0 then
+            self:fill_area(7 + 10 * 3, 4, 3, 2, 1)  -- inL peak at last bar
+        end
+        if (peaks & 4) ~= 0 then
+            self:fill_area(54 + 10 * 3, 0, 3, 2, 1)  -- outR peak at last bar
+        end
+        if (peaks & 8) ~= 0 then
+            self:fill_area(54 + 10 * 3, 4, 3, 2, 1)  -- outL peak at last bar
         end
     end
 end
