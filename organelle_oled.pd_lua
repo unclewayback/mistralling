@@ -458,7 +458,8 @@ end
 -- Set a line of text (for oled_line_1 through oled_line_5)
 function oled:setLine(lineNum, text)
     self:clearLine(lineNum)
-    local y_pos = calcxpos(lineNum) + 1
+    local y_pos = calcxpos(lineNum) + 2
+    -- had y as + 1 but 2 looks correct to me
     local len = #text
     if len > 21 then len = 21 end
     self:println_8(text:sub(1, len), 2, y_pos, 1)
