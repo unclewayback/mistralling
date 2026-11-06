@@ -723,15 +723,12 @@ function oled:in_1_oled_cpumeter(atoms)
     local a = get_args(atoms)
     local cpu_percent = tonumber(a[1]) or 0
     
-    -- Clamp to 0-99 range, show ++ for >= 100
-    local display_percent
+    -- Format: always 6 chars (CPU00% to CPU99%, or CPU++% for >=100)
     local cpu_text
     if cpu_percent >= 100 then
-        display_percent = 99
-        cpu_text = "CPU++"
+        cpu_text = "CPU++%"
     else
-        display_percent = math.floor(math.max(0, math.min(99, cpu_percent)))
-        local p = display_percent
+        local p = math.floor(math.max(0, math.min(99, cpu_percent)))
         if p < 10 then
             cpu_text = "CPU0" .. tostring(p) .. "%"
         else
@@ -740,12 +737,12 @@ function oled:in_1_oled_cpumeter(atoms)
     end
     
     -- Only update if value changed and top info bar is visible
-    if self.show_top_infobar and display_percent ~= self.last_cpu then
-        self.last_cpu = display_percent
+    if self.show_top_infobar and cpu_text ~= self.last_cpu_text then
+        self.last_cpu_text = cpu_text
         -- Clear the CPU meter area (x=87-127, y=0-7)
         self:fill_area(87, 0, 41, 8, 0)
-        -- Draw CPU text at x=98, y=0 (right-justified in x=87-127 area)
-        self:println_8(cpu_text, 98, 0, 1)
+        -- Draw CPU text at x=93, y=0 (right-justified for 6-char text in 41px space)
+        self:println_8(cpu_text, 93, 0, 1)
         self:flip()
     end
 end
