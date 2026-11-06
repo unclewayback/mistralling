@@ -732,20 +732,20 @@ function oled:in_1_oled_cpumeter(atoms)
         self.last_cpu = cpu_percent
         
         -- Clear the CPU meter area (x=88 to 127, y=0 to 5)
-        self:fill_area(88, 0, 40, 6, 0)
+        self:fill_area(87, 0, 41, 8, 0)
         
         -- Format CPU string
         local cpu_text
         if cpu_percent < 10 then
-            cpu_text = "CPU:00" .. tostring(cpu_percent) .. "%"
+            cpu_text = "CPU00" .. tostring(cpu_percent) .. "%"
         elseif cpu_percent < 100 then
-            cpu_text = "CPU:0" .. tostring(cpu_percent) .. "%"
+            cpu_text = "CPU0" .. tostring(cpu_percent) .. "%"
         else
-            cpu_text = "CPU:100%"
+            cpu_text = "CPU100%"
         end
         
         -- Draw CPU text at x=88, y=1 (slightly lower than VU meters for alignment)
-        self:println_8(cpu_text, 88, 1, 1)
+        self:println_8(cpu_text, 87, 0, 1)
         self:flip()
     end
 end
@@ -763,21 +763,21 @@ function oled:in_1_oled_showTopInfoBar(atoms)
         
         -- Redraw CPU meter with last known value
         if self.last_cpu >= 0 then
-            self:fill_area(88, 0, 40, 6, 0)
+            self:fill_area(87, 0, 41, 8, 0)
             local cpu_text
             if self.last_cpu < 10 then
-                cpu_text = "CPU:00" .. tostring(self.last_cpu) .. "%"
+                cpu_text = "CPU00" .. tostring(self.last_cpu) .. "%"
             elseif self.last_cpu < 100 then
-                cpu_text = "CPU:0" .. tostring(self.last_cpu) .. "%"
+                cpu_text = "CPU0" .. tostring(self.last_cpu) .. "%"
             else
-                cpu_text = "CPU:100%"
+                cpu_text = "CPU100%"
             end
-            self:println_8(cpu_text, 88, 1, 1)
+            self:println_8(cpu_text, 87, 0, 1)
         end
         self:flip()
     else
         -- Hide: clear the top info bar area
-        self:fill_area(0, 0, 128, 6, 0)
+        self:fill_area(0, 0, 87, 8, 0)
         self:flip()
     end
 end
@@ -818,7 +818,7 @@ function oled:draw_vumeter(inR, inL, outR, outL, peaks)
     self.last_vu = {inR=inR, inL=inL, outR=outR, outL=outL, peaks=peaks}
     
     -- Clear only the VU meter area that needs clearing (top 6 rows, full width)
-    self:fill_area(0, 0, 128, 6, 0)
+    self:fill_area(0, 0, 87, 8, 0)
     
     -- Draw 'I' and 'O' labels (matching C++: put_char_small('I', 0, 0, 1) and put_char_small('O', 45, 0, 1))
     self:put_char_small(string.byte('I'), 0, 0, 1)
