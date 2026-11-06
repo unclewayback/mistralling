@@ -228,7 +228,7 @@ function oled:initialize()
     self.show_infobar = false
     self.show_top_infobar = true  -- Controls VU meter and CPU meter at top
     self.last_vu = {inR=0, inL=0, outR=0, outL=0, peaks=0}  -- For VU meter optimization
-    self.last_cpu = -1  -- For CPU meter optimization
+    self.last_cpu_text = ""  -- For CPU meter optimization
     self:clear()
     self:flip()
     self:update_canvas_bounds()
@@ -762,20 +762,9 @@ function oled:in_1_oled_showTopInfoBar(atoms)
         self:draw_vumeter(last.inR, last.inL, last.outR, last.outL, last.peaks)
         
         -- Redraw CPU meter with last known value
-        if self.last_cpu >= 0 then
+        if self.last_cpu_text and self.last_cpu_text ~= "" then
             self:fill_area(87, 0, 41, 8, 0)
-            local cpu_text
-            if self.last_cpu >= 100 then
-                cpu_text = "CPU++"
-            else
-                local p = math.floor(math.max(0, math.min(99, self.last_cpu)))
-                if p < 10 then
-                    cpu_text = "CPU0" .. tostring(p) .. "%"
-                else
-                    cpu_text = "CPU" .. tostring(p) .. "%"
-                end
-            end
-            self:println_8(cpu_text, 98, 0, 1)
+            self:println_8(self.last_cpu_text, 93, 0, 1)
         end
         self:flip()
     else
