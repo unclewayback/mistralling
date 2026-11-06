@@ -458,7 +458,7 @@ end
 -- Set a line of text (for oled_line_1 through oled_line_5)
 function oled:setLine(lineNum, text)
     self:clearLine(lineNum)
-    local y_pos = calcxpos(lineNum) + 2  -- +1 adjustment: text was 1px too high
+    local y_pos = calcxpos(lineNum) + 1
     local len = #text
     if len > 21 then len = 21 end
     self:println_8(text:sub(1, len), 2, y_pos, 1)
@@ -718,34 +718,34 @@ function oled:in_1_oled_vumeter(atoms)
 end
 
 -- CPU meter - displays CPU percentage in the top info bar
--- Format: "CPU:XX%" or "CXX%" depending on available space
--- Positioned at x=88-127 (right of output VU meters)
+-- Part of our custom implementation (not in original Organelle)
 function oled:in_1_oled_cpumeter(atoms)
     local a = get_args(atoms)
     local cpu_percent = tonumber(a[1]) or 0
     
-    -- Clamp to 0-100 range
-    cpu_percent = math.floor(math.max(0, math.min(100, cpu_percent)))
+    -- Clamp to 0-99 range, show ++ for >= 100
+    local display_percent
+    local cpu_text
+    if cpu_percent >= 100 then
+        display_percent = 99
+        cpu_text = "CPU++"
+    else
+        display_percent = math.floor(math.max(0, math.min(99, cpu_percent)))
+        local p = display_percent
+        if p < 10 then
+            cpu_text = "CPU0" .. tostring(p) .. "%"
+        else
+            cpu_text = "CPU" .. tostring(p) .. "%"
+        end
+    end
     
     -- Only update if value changed and top info bar is visible
-    if self.show_top_infobar and cpu_percent ~= self.last_cpu then
-        self.last_cpu = cpu_percent
-        
-        -- Clear the CPU meter area (x=88 to 127, y=0 to 5)
+    if self.show_top_infobar and display_percent ~= self.last_cpu then
+        self.last_cpu = display_percent
+        -- Clear the CPU meter area (x=87-127, y=0-7)
         self:fill_area(87, 0, 41, 8, 0)
-        
-        -- Format CPU string
-        local cpu_text
-        if cpu_percent < 10 then
-            cpu_text = "CPU00" .. tostring(cpu_percent) .. "%"
-        elseif cpu_percent < 100 then
-            cpu_text = "CPU0" .. tostring(cpu_percent) .. "%"
-        else
-            cpu_text = "CPU100%"
-        end
-        
-        -- Draw CPU text at x=88, y=1 (slightly lower than VU meters for alignment)
-        self:println_8(cpu_text, 87, 0, 1)
+        -- Draw CPU text at x=98, y=0 (right-justified in x=87-127 area)
+        self:println_8(cpu_text, 98, 0, 1)
         self:flip()
     end
 end
@@ -765,25 +765,27 @@ function oled:in_1_oled_showTopInfoBar(atoms)
         if self.last_cpu >= 0 then
             self:fill_area(87, 0, 41, 8, 0)
             local cpu_text
-            if self.last_cpu < 10 then
-                cpu_text = "CPU00" .. tostring(self.last_cpu) .. "%"
-            elseif self.last_cpu < 100 then
-                cpu_text = "CPU0" .. tostring(self.last_cpu) .. "%"
+            if self.last_cpu >= 100 then
+                cpu_text = "CPU++"
             else
-                cpu_text = "CPU100%"
+                local p = math.floor(math.max(0, math.min(99, self.last_cpu)))
+                if p < 10 then
+                    cpu_text = "CPU0" .. tostring(p) .. "%"
+                else
+                    cpu_text = "CPU" .. tostring(p) .. "%"
+                end
             end
-            self:println_8(cpu_text, 87, 0, 1)
+            self:println_8(cpu_text, 98, 0, 1)
         end
         self:flip()
     else
         -- Hide: clear the top info bar area
-        self:fill_area(0, 0, 87, 8, 0)
+        self:fill_area(0, 0, 128, 8, 0)
         self:flip()
     end
 end
 
 -- Draw VU meter matching Organelle OS C++ drawInfoBar()
--- OPTIMIZED: Only redraws bars that changed from previous frame
 -- Layout (from C++ code):
 --   'I' at (0,0), 'O' at (45,0)
 --   Input VU: x=7 to x=40 (11 bars, 3px wide, spaced 3px apart)
@@ -801,23 +803,8 @@ function oled:draw_vumeter(inR, inL, outR, outL, peaks)
     outR = math.floor(math.max(0, math.min(11, outR)))
     outL = math.floor(math.max(0, math.min(11, outL)))
     
-    local last = self.last_vu
-    local changed = false
-    
-    -- Check if any values changed
-    if inR ~= last.inR or inL ~= last.inL or outR ~= last.outR or outL ~= last.outL or peaks ~= last.peaks then
-        changed = true
-    end
-    
-    -- If nothing changed, skip drawing entirely
-    if not changed then
-        return
-    end
-    
-    -- Store current values for next comparison
-    self.last_vu = {inR=inR, inL=inL, outR=outR, outL=outL, peaks=peaks}
-    
-    -- Clear only the VU meter area that needs clearing (top 6 rows, full width)
+    -- Clear only the VU meter area (x=0-86, y=0-7) - 8 rows for 8px font
+    -- This prevents overwriting CPU meter at x=87-127
     self:fill_area(0, 0, 87, 8, 0)
     
     -- Draw 'I' and 'O' labels (matching C++: put_char_small('I', 0, 0, 1) and put_char_small('O', 45, 0, 1))
